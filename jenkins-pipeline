@@ -1,0 +1,38 @@
+pipeline {
+  agent any
+
+  environment {
+    IMAGE_NAME = 'sample-nginx-app'
+    DOCKERHUB_USER = 'your-dockerhub-username' // Replace this
+    REPO = "${DOCKERHUB_USER}/${IMAGE_NAME}"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git 'https://github.com/your-github-user/sample-nginx-app.git'
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
+        sh 'docker build -t $REPO .'
+      }
+    }
+
+    stage('Push to Docker Hub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+          sh 'docker push $REPO'
+        }
+      }
+    }
+
+    stage('Deploy using Helm') {
+      steps {
+        sh 'helm upgrade --install sample-app ./helm/sample-app-chart --set image.repository=$REPO --set image.tag=latest'
+      }
+    }
+  }
+}
